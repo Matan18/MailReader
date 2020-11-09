@@ -1,0 +1,220 @@
+<html>
+
+<head>
+  <meta name="google-signin-client_id"
+    content="891392419095-k56qfqfo98flcmatu4515ceesj7q3ek6.apps.googleusercontent.com">
+</head>
+
+<body>
+  <style>
+    p {
+      padding: 5px !important;
+      margin: 5px !important;
+      font-size: 20px !important;
+    }
+
+    p * {
+      font-size: 20px !important;
+    }
+
+    h1 {
+      padding: 0px !important;
+      margin: 0px !important;
+      font-size: 30px !important;
+    }
+  </style>
+  <script>
+    const utterance = new SpeechSynthesisUtterance();
+    let Id;
+    let ListItem;
+    utterance.lang = "pt-BR";
+    utterance.rate = 1;
+    utterance.onend = function (event) {
+      console.log("Spoken has finshed in: ", event.elapsedTime / 1000)
+      ListItem.parentElement.removeChild(ListItem)
+      utterance.text = 'No momento não há texto selecionado';
+      var alreadyReadMailRequest = new XMLHttpRequest();
+      alreadyReadMailRequest.open('POST', `https://gmail.googleapis.com/gmail/v1/users/me/messages/${Id}/modify`)
+      alreadyReadMailRequest.setRequestHeader('authorization', `Bearer ${token}`)
+      alreadyReadMailRequest.onload = function () {
+        console.log('Mail unmarked with UNREAD: ', alreadyReadMailRequest.response)
+      }
+      alreadyReadMailRequest.onerror = function () {
+        console.log("Something wen't wrong")
+      }
+      alreadyReadMailRequest.send('{"removeLabelIds":["UNREAD"]}')
+    }
+    function speak() {
+      speechSynthesis.speak(utterance);
+    }
+
+    function stop() {
+      speechSynthesis.cancel()
+    }
+
+    function pause() {
+      if (speechSynthesis.paused) {
+        speechSynthesis.resume();
+      } else {
+        speechSynthesis.pause();
+      }
+    }
+
+    function setText(text, MailId, ListItemElement) {
+      utterance.text = text;
+      Id = MailId
+      ListItem = ListItemElement
+      console.log(text.toString('unicode'));
+      console.log('Setando mensagem de id: ', Id)
+    }
+
+  </script>
+  <h1>Teste</h1>
+  <button onclick="speak()">READ</button>
+  <button onclick="stop()">STOP</button>
+  <button onclick="pause()">PAUSE</button>
+
+
+  <ul id='list'>
+
+  </ul>
+  <script>
+    const token = localStorage.getItem('MailReader@Token');
+
+    function findMessage(id, callback) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', `https://content-gmail.googleapis.com/gmail/v1/users/me/messages/${id}`)
+      xhr.setRequestHeader('authorization', `Bearer ${token}`)
+      xhr.onload = callback;
+      xhr.send();
+    }
+    function treatMessages(progressEvent) {
+      var { messages } = JSON.parse(progressEvent.srcElement.responseText)
+      console.log(`${messages.length} Mensagens`)
+      messages.map((message, index) => {
+        const messageIndex = index;
+        const messageId = message.id;
+        findMessage(message.id, function (progressEvent) {
+          const response = JSON.parse(progressEvent.srcElement.responseText);
+
+          let ListItem = document.createElement('li');
+          let Container = document.createElement('div')
+          let title = document.createElement('h5');
+          let firstText = document.createElement('html');
+          let secondText = document.createElement('html');
+          let paragraf = document.createElement('html');
+          let text = document.createElement('p');
+          let readButton = document.createElement('button');
+
+
+          title.innerText = response.payload.headers.find(item => (item.name === "Subject")).value
+          title.innerText = title.innerHTML + `From ` + response.payload.headers.find(item => (item.name === "From")).value
+          readButton.onclick = (e) => {
+            console.log('Clicou: ', index)
+            setText(Container.innerText, messageId, ListItem)
+          }
+          ListItem.appendChild(readButton);
+          Container.appendChild(title)
+          ListItem.appendChild(Container);
+          UnorderedList.appendChild(ListItem)
+
+          try {
+            if (!!response.payload.parts) {
+              response.payload.parts.map((item, index) => {
+                if (index === 0) {
+                  if (item.mimeType === 'text/plain') {
+                    decodeBlob(item.body.data, function (progressEvent) {
+                      // console.log('innertext 0 plain: ', progressEvent.srcElement.responseText)
+                      // text.innerText = progressEvent.srcElement.responseText
+                    })
+                  }
+                  else {
+                    decodeBlob(item.body.data, function (progressEvent) {
+                      // console.log('innertext 0 html: ', progressEvent.srcElement.responseText)
+
+                      firstText.innerHTML = progressEvent.srcElement.responseText
+                      // text.innerHTML = firstText.innerHTML
+                    })
+                  }
+                }
+                else {
+                  if (item.mimeType === 'text/plain') {
+                    decodeBlob(item.body.data, function (progressEvent) {
+                      // console.log('innertext 1 plain: ', progressEvent.srcElement.responseText)
+
+                      text.innerText = text.innerText + progressEvent.srcElement.responseText
+                    })
+                  }
+                  else {
+                    decodeBlob(item.body.data, function (progressEvent) {
+                      // console.log('innertext 1 html: ', progressEvent.srcElement.responseText)
+
+                      secondText.innerHTML = progressEvent.srcElement.responseText
+                      text.innerHTML = text.innerHTML + secondText.innerHTML;
+                    })
+                  }
+                }
+              })
+            }
+            if (!!response.payload.body.data) {
+              console.log('Fazendo leitura do body')
+              if (response.payload.mimeType === "text/html") {
+                decodeBlob(response.payload.body.data, function (progressEvent) {
+                  paragraf.innerHTML = progressEvent.srcElement.responseText
+                  text.innerHTML = text.innerHTML + paragraf.innerHTML
+                })
+              }
+              else {
+                decodeBlob(response.payload.body.data, function (progressEvent) {
+                  text.innerText = text.innerText + progressEvent.srcElement.responseText
+                })
+              }
+            }
+
+            const htmlsplited = text.innerHTML.split(/<style?(.+)|<\/style>/g);
+            const realTextArray = htmlsplited.map((htmlText, index) => {
+              if (index % 2 === 0) {
+                return htmlText
+              } else {
+                return ''
+              }
+            })
+            text.innerHTML = realTextArray.join().replace(/<img?(.+)>|https:?(.+)\)/g, '')
+            text.innerHTML = text.innerText
+
+
+            readButton.innerText = 'Ler'
+
+            Container.appendChild(text);
+          }
+          catch {
+            // console.log('Não conseguimos identificar a mensagem')
+          }
+        }
+        )
+      })
+    }
+    const UnorderedList = document.getElementById('list')
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'https://content-gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=UNREAD')
+
+    xhr.setRequestHeader('authorization', `Bearer ${token}`)
+
+    xhr.onload = treatMessages;
+    xhr.send();
+
+    function decodeBlob(data, callback) {
+      var xhrDecode = new XMLHttpRequest();
+      xhrDecode.open('POST', '/decode');
+      xhrDecode.setRequestHeader('authorization', `Bearer ${token}`);
+      xhrDecode.onload = callback
+      xhrDecode.send(data);
+    }
+
+  </script>
+
+
+  <script src="https://apis.google.com/js/platform.js?onload=renderButton" async defer></script>
+</body>
+
+</html>
