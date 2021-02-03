@@ -22,6 +22,14 @@
       margin: 0px !important;
       font-size: 30px !important;
     }
+    body{
+      position: relative;
+    }
+    .panel{
+      position: fixed;
+      left: 15px;
+      bottom: 15px;
+    }
   </style>
   <script>
     const utterance = new SpeechSynthesisUtterance();
@@ -64,15 +72,15 @@
       utterance.text = text;
       Id = MailId
       ListItem = ListItemElement
-      console.log(text.toString('unicode'));
-      console.log('Setando mensagem de id: ', Id)
     }
 
   </script>
   <h1>Teste</h1>
-  <button onclick="speak()">READ</button>
-  <button onclick="stop()">STOP</button>
-  <button onclick="pause()">PAUSE</button>
+  <div class="panel">
+    <button onclick="speak()">READ</button>
+    <button onclick="stop()">STOP</button>
+    <button onclick="pause()">PAUSE</button>
+  </div>
 
 
   <ul id='list'>
@@ -196,7 +204,7 @@
     }
     const UnorderedList = document.getElementById('list')
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'https://content-gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=UNREAD')
+    xhr.open('GET', 'https://content-gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=Label_5243624555258925438&labelIds=UNREAD')
 
     xhr.setRequestHeader('authorization', `Bearer ${token}`)
 
@@ -212,9 +220,6 @@
     }
 
   </script>
-
-
-  <script src="https://apis.google.com/js/platform.js?onload=renderButton" async defer></script>
 </body>
 
 </html>
